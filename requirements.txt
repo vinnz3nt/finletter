@@ -1,0 +1,6 @@
+yfinance>=0.2.40
+pandas>=2.0
+matplotlib>=3.7
+python-dotenv>=1.0
+# Optional fallback data source for unreliable EU/SE tickers (see data.py):
+# pandas-datareader>=0.10
