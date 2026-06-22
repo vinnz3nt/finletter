@@ -16,6 +16,13 @@ See [`convos/prompt.md`](convos/prompt.md) for the full specification.
 - **Winners & losers** inspect ~15 of the largest companies per region.
 - Data comes from Yahoo Finance via `yfinance`. The email is plain factual templates
   plus tables and two inline bar charts — no LLM-generated prose.
+- **Opening summary** ("This week in the global economy") is the one LLM-sourced
+  part: `finletter/news.py` shells out to the [Claude Code CLI](https://docs.claude.com/claude-code)
+  in print mode (`claude -p … --allowedTools WebSearch WebFetch`) to pull five
+  balanced global finance/macro headlines for the week. It's best-effort — if the
+  `claude` binary is missing or the call fails, the summary block is omitted and
+  the rest of the letter sends as usual. Tune via `CLAUDE_BIN`, `NEWS_MODEL`, and
+  `NEWS_TIMEOUT_SECONDS` (see `.env.example`).
 
 ## Setup
 

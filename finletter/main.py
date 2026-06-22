@@ -14,7 +14,7 @@ from datetime import date
 
 from dotenv import load_dotenv
 
-from . import analysis, charts, config, data, emailer, render
+from . import analysis, charts, config, data, emailer, news, render
 
 log = logging.getLogger("finletter")
 
@@ -54,11 +54,17 @@ def _build_report(today: date) -> dict:
         missing += analysis.missing_tickers(region_returns)
         region_winners_losers[region] = analysis.winners_losers(region_returns, n=3)
 
+    # --- Opening summary: the week's global finance/macro headlines ----------
+    # LLM-sourced (via the Claude Code CLI) and non-fatal: an empty list just
+    # means the summary block is omitted from the letter.
+    news_bullets = news.fetch_news_bullets(today)
+
     currencies = ", ".join(
         dict.fromkeys(meta["currency"] for meta in config.REGION_INDICES.values())
     )
     return {
         "as_of": today,
+        "news_bullets": news_bullets,
         "region_rotation": region_rotation,
         "region_currency_note": f"Each region in its own local currency ({currencies}).",
         "sector_rotation": sector_rotation,
@@ -89,6 +95,7 @@ def run(no_send: bool = False, out: str | None = None, today: date | None = None
         cap_tiers=report["cap_tiers"],
         region_winners_losers=report["region_winners_losers"],
         missing=report["missing"],
+        news_bullets=report["news_bullets"],
     )
     text = render.render_text(
         as_of=report["as_of"],
@@ -97,6 +104,7 @@ def run(no_send: bool = False, out: str | None = None, today: date | None = None
         cap_tiers=report["cap_tiers"],
         region_winners_losers=report["region_winners_losers"],
         missing=report["missing"],
+        news_bullets=report["news_bullets"],
     )
 
     if out:

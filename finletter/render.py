@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 from datetime import date
+from html import escape as html_escape
 
 Ranked = list[tuple[str, float]]
 
@@ -32,10 +33,39 @@ def _color(value: float) -> str:
     return "#2e7d32" if value >= 0 else "#c62828"
 
 
+def _document(body: str) -> str:
+    """Wrap the body in a minimal HTML document declaring UTF-8.
+
+    Without a charset declaration, browsers (and some mail clients) guess the
+    encoding when opening the file/message and decode our UTF-8 bytes — en/em
+    dashes, curly quotes — as Windows-1252, producing mojibake like ``â€“``.
+    The ``<meta charset>`` pins it to UTF-8.
+    """
+    return (
+        "<!DOCTYPE html><html><head>"
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"</head><body>{body}</body></html>"
+    )
+
+
 def _h2(text: str) -> str:
     return (
         f'<h2 style="font-family:Arial,Helvetica,sans-serif;font-size:18px;'
         f'margin:28px 0 6px;">{text}</h2>'
+    )
+
+
+def _news_block(bullets: list[str]) -> str:
+    """Opening 'general feel of the global economy' summary as a bullet list."""
+    items = "".join(
+        f'<li style="margin:0 0 6px;">{html_escape(b)}</li>' for b in bullets
+    )
+    return (
+        f"{_h2('This week in the global economy')}"
+        f'<ul style="font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+        f'line-height:1.5;color:#222;margin:8px 0 20px;padding-left:20px;">'
+        f"{items}</ul>"
     )
 
 
@@ -86,6 +116,7 @@ def render_html(
     cap_tiers: Ranked,
     region_winners_losers: dict[str, tuple[Ranked, Ranked]],
     missing: list[str],
+    news_bullets: list[str] | None = None,
 ) -> str:
     """Assemble the full HTML email body."""
     parts: list[str] = []
@@ -96,6 +127,10 @@ def render_html(
         f'<p style="font-family:Arial,Helvetica,sans-serif;color:#666;font-size:13px;margin:0 0 8px;">'
         f'Week ending {as_of:%A, %B %-d, %Y}</p>'
     )
+
+    # Opening "general feel" summary, when available (omitted on fetch failure).
+    if news_bullets:
+        parts.append(_news_block(news_bullets))
 
     parts.append(_h2("Region rotation"))
     parts.append(
@@ -124,7 +159,7 @@ def render_html(
         )
 
     parts.append("</div>")
-    return "".join(parts)
+    return _document("".join(parts))
 
 
 def inline_images(html: str, images: dict[str, bytes]) -> str:
@@ -148,12 +183,18 @@ def render_text(
     cap_tiers: Ranked,
     region_winners_losers: dict[str, tuple[Ranked, Ranked]],
     missing: list[str],
+    news_bullets: list[str] | None = None,
 ) -> str:
     """Plain-text fallback for clients that don't render HTML."""
     lines = [f"Finletter — week ending {as_of:%A, %B %-d, %Y}", ""]
 
     def ranked_lines(ranked: Ranked) -> list[str]:
         return [f"  {i}. {label}: {_pct(ret)}" for i, (label, ret) in enumerate(ranked, 1)]
+
+    if news_bullets:
+        lines += ["THIS WEEK IN THE GLOBAL ECONOMY"]
+        lines += [f"  - {b}" for b in news_bullets]
+        lines += [""]
 
     lines += ["REGION ROTATION (local currency)"] + ranked_lines(region_rotation) + [""]
     lines += ["US SECTOR ROTATION"] + ranked_lines(sector_rotation) + [""]
