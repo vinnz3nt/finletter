@@ -12,6 +12,8 @@ from datetime import date
 from html import escape as html_escape
 
 Ranked = list[tuple[str, float]]
+# (when, what) pairs for the closing "Next week" block; `when` may be "".
+Events = list[tuple[str, str]]
 
 # CIDs used both here (img src) and by the emailer to attach the images.
 REGION_CHART_CID = "region_rotation"
@@ -69,6 +71,32 @@ def _news_block(bullets: list[str]) -> str:
     )
 
 
+def _lookahead_block(events: Events) -> str:
+    """Closing 'Next week' look-ahead: the coming week's scheduled events.
+
+    Rendered as a two-column table (date, event) when the fetcher managed to
+    split a date off the bullet; bullets that arrived without one span both
+    columns so nothing is lost.
+    """
+    rows = "".join(
+        (
+            f'<tr><td style="{_CSS_TD}white-space:nowrap;font-weight:bold;">'
+            f'{html_escape(when)}</td>'
+            f'<td style="{_CSS_TD}">{html_escape(what)}</td></tr>'
+            if when
+            else f'<tr><td style="{_CSS_TD}" colspan="2">{html_escape(what)}</td></tr>'
+        )
+        for when, what in events
+    )
+    return (
+        f"{_h2('Next week')}"
+        f'<table style="{_CSS_TABLE}">'
+        f'<tr><th style="{_CSS_TH}">When</th>'
+        f'<th style="{_CSS_TH}">What to watch</th></tr>'
+        f"{rows}</table>"
+    )
+
+
 def _rotation_table(ranked: Ranked, label_header: str) -> str:
     rows = "".join(
         f'<tr><td style="{_CSS_TD}">{i}. {label}</td>'
@@ -117,6 +145,7 @@ def render_html(
     region_winners_losers: dict[str, tuple[Ranked, Ranked]],
     missing: list[str],
     news_bullets: list[str] | None = None,
+    lookahead_events: Events | None = None,
 ) -> str:
     """Assemble the full HTML email body."""
     parts: list[str] = []
@@ -151,6 +180,10 @@ def render_html(
     for region, (top, bottom) in region_winners_losers.items():
         parts.append(_winners_losers_table(region, top, bottom))
 
+    # Closing look-ahead, when available (omitted on fetch failure).
+    if lookahead_events:
+        parts.append(_lookahead_block(lookahead_events))
+
     if missing:
         parts.append(
             f'<p style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#999;'
@@ -184,6 +217,7 @@ def render_text(
     region_winners_losers: dict[str, tuple[Ranked, Ranked]],
     missing: list[str],
     news_bullets: list[str] | None = None,
+    lookahead_events: Events | None = None,
 ) -> str:
     """Plain-text fallback for clients that don't render HTML."""
     lines = [f"Finletter — week ending {as_of:%A, %B %-d, %Y}", ""]
@@ -206,6 +240,13 @@ def render_text(
         lines += [f"      {label}: {_pct(ret)}" for label, ret in top]
         lines.append("    Bottom:")
         lines += [f"      {label}: {_pct(ret)}" for label, ret in bottom]
+    if lookahead_events:
+        lines += ["", "NEXT WEEK"]
+        lines += [
+            f"  - {when} — {what}" if when else f"  - {what}"
+            for when, what in lookahead_events
+        ]
+
     if missing:
         lines += ["", f"Data unavailable: {', '.join(missing)}"]
     return "\n".join(lines)

@@ -59,12 +59,17 @@ def _build_report(today: date) -> dict:
     # means the summary block is omitted from the letter.
     news_bullets = news.fetch_news_bullets(today)
 
+    # --- Closing look-ahead: the coming week's scheduled events -------------
+    # Same LLM source and the same non-fatal contract as the opening summary.
+    lookahead_events = news.fetch_lookahead_events(today)
+
     currencies = ", ".join(
         dict.fromkeys(meta["currency"] for meta in config.REGION_INDICES.values())
     )
     return {
         "as_of": today,
         "news_bullets": news_bullets,
+        "lookahead_events": lookahead_events,
         "region_rotation": region_rotation,
         "region_currency_note": f"Each region in its own local currency ({currencies}).",
         "sector_rotation": sector_rotation,
@@ -96,6 +101,7 @@ def run(no_send: bool = False, out: str | None = None, today: date | None = None
         region_winners_losers=report["region_winners_losers"],
         missing=report["missing"],
         news_bullets=report["news_bullets"],
+        lookahead_events=report["lookahead_events"],
     )
     text = render.render_text(
         as_of=report["as_of"],
@@ -105,6 +111,7 @@ def run(no_send: bool = False, out: str | None = None, today: date | None = None
         region_winners_losers=report["region_winners_losers"],
         missing=report["missing"],
         news_bullets=report["news_bullets"],
+        lookahead_events=report["lookahead_events"],
     )
 
     if out:
