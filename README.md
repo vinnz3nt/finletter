@@ -87,3 +87,7 @@ finletter/
   emailer.py   # SMTP send with inline images
   main.py      # orchestration + CLI
 ```
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
